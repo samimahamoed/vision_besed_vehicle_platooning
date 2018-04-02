@@ -283,34 +283,6 @@ def print_usage():
     print('python3 run_video.py resize_window=1920x1080')
 
 
-def get_dx(corners):
-    return abs(tuple(corners[3].ravel())[0] - tuple(corners[0].ravel())[0])
-
-def get_dy(corners):
-    return abs(tuple(corners[12].ravel())[0] - tuple(corners[0].ravel())[0])
-
-def get_area(corners):
-    o = corners[0].ravel()
-    epx = corners[3].ravel()
-    epy = corners[12].ravel()
-    return cv2.norm(epx - o)* cv2.norm(epy - o)
-
-def get_y(img, corners, imgpts):
-    corner = tuple(corners[4].ravel())
-    corners[4].ravel()
-
-    img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
-    img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
-    img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
-    return img
-
-def draw(img, corners, imgpts):
-    corner = tuple(corners[0].ravel())
-    img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
-    img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
-    img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
-    return img
-
 def main():
     global resize_output, resize_output_width, resize_output_height
 
@@ -374,33 +346,24 @@ def main():
     mtx = numpy.matrix([[516.14758188, 0 , 314.02546443], [0 , 515.76615942 , 250.15817809], [0, 0, 1]])
     disto = numpy.matrix([[2.48041485e-01,  -6.31759025e-01 ,  4.36060601e-04, -1.48720850e-03, 5.17810257e-01]])
 
-    #TODO:  configurable values
-    nrows = 4#7
-    ncols = 4#7
-    dimension = 18#9
-    tpx = int(actual_frame_width / 2)
-    tpy = int(actual_frame_height / 2) + int(actual_frame_height / 4)
+    nrows = 7
+    ncols = 7
+    dimension = 9
 
-    debug = False
-    # xtarget =
-    if debug == True:
-        choice = input('Enter Y to run camera calibration, press enter to continue:')
-        if choice.upper() == 'Y':
-            ret, mtx, disto, rvecs, tvecs = run_camera_calibration(cap,nrows, ncols, dimension)
-            if not ret:
-                print('failed to calibrate')
-                exit_app = True
+    choice = input('Enter Y to run camera calibration, press enter to continue:')
+    if choice.upper() == 'Y':
+        ret, mtx, disto, rvecs, tvecs = run_camera_calibration(cap,nrows, ncols, dimension)
+        if not ret:
+            print('failed to calibrate')
+            exit_app = True
 
     print('mtx',mtx)
     print('disto', disto)
     ret, img = cap.read()
     h, w = img.shape[:-1]
     newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, disto, (w, h), 1, (w, h))
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, dimension, 0.001)
-    # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-    objp = numpy.zeros((nrows * ncols, 3), numpy.float32)
-    objp[:, :2] = numpy.mgrid[0:nrows, 0:ncols].T.reshape(-1, 2)
-    axis = numpy.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+
+    #mapx, mapy = cv2.initUndistortRectifyMap(mtx, disto, None, newcameramtx, (w, h), 5)
 
     while(True):
         if (exit_app):
@@ -410,10 +373,10 @@ def main():
             end_time = time.time()
             print("No image from from video device, exiting")
             break
-        #TODO: undistort image
-        # image_ud = cv2.undistort(image, mtx, disto, None, newcameramtx)
-        # x, y, w, h = roi
-        # image_ud = image_ud[y:y + h, x:x + w]
+
+        display_imagec = cv2.undistort(image, mtx, disto, None, newcameramtx)
+        x, y, w, h = roi
+        display_imagec = display_imagec[y:y + h, x:x + w]
 
         # check if user hasn't closed the window
         prop_val = cv2.getWindowProperty(cv_window_name, cv2.WND_PROP_ASPECT_RATIO)
@@ -421,69 +384,79 @@ def main():
             end_time = time.time()
             exit_app = True
             break
-        ###################################################################################################
-        # kp2, des2 = orb.detectAndCompute(image_ud,None)
-        # matches = bf.match(des1,des2)
-        # matches = sorted(matches, key = lambda x:x.distance)
-        # display_image = cv2.drawMatches(template,kp1,image_ud,kp2,matches[:36],None, flags=4)
-        ####################################################################################################
-        # run_inference(display_image, graphnet)
-        # if (resize_output):
-        # display_image = cv2.resize(display_image,(resize_output_width, resize_output_height), cv2.INTER_LINEAR)
-        ####################################################################################################
-##################################################################################################
-        gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-        ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
-        if ret != True:
-            continue
-        corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-        # Find the rotation and translation vectors.
-        _ , rvecs, tvecs, inliers = cv2.solvePnPRansac(objp, corners2, mtx, disto)
-        # project 3D points to image plane
-        imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, mtx, disto)
-        gray= draw(gray, corners2, imgpts)
 
+##################################################################################################
+        display_image = cv2.cvtColor(display_imagec,cv2.COLOR_BGR2GRAY)
+        #corners = cv2.goodFeaturesToTrack(display_image,81, 0.1, 10)
+
+        ret, corners = cv2.findChessboardCorners(display_image, (ncols, nrows), None)
+
+        if ret != True :
+            print('No much found')
+            continue
+
+        try:
+            corners = sorted(numpy.int0(corners).tolist(), key = lambda x:x)
+        except:
+            continue
+        xp = int(actual_frame_width/2)
+        yp = int(actual_frame_height/2)
+        cv2.circle(display_image, (xp, yp), 10, [150,0,0], -1)
+        ii = 0;
+        print('######################################')
+
+        sstart = True
+        udx = 0
         for corner in corners:
             [x, y] = corner[0]
-            cv2.circle(gray, (x, y), 3, 255, -1)
+            if sstart:
+                corner[0].append(0)
+                xp = x
+                yp = y
+                sstart = False
+                continue
+            udx += (x - xp)
+            corner[0].append(x - xp)
+            xp = x
+            yp = y
+        print('###################################### udx : ', udx, cnt, len(corners))
+        udx /=len(corners)
 
-        o1 = corners[5].ravel()
-        e1 = corners[10].ravel()
-        o2 = corners[6].ravel()
-        e2 = corners[9].ravel()
+        print('###################################### udx : ',udx )
 
-        x = o2 - o1;
-        d1 = e1 - o1;
-        d2 = e2 - o2;
-        xx = tuple(x)[0]
-        xy = tuple(x)[1]
-        d1x = tuple(d1)[0]
-        d1y = tuple(d1)[1]
-        d2x = tuple(d2)[0]
-        d2y = tuple(d2)[1]
+        ii = 0
+        jj = 0
+        sstart = True
 
-        cross = d1x * d2y - d1y * d2x;
-        if (abs(cross) < 1e-8) :
-            print("Error")
+        cpx = [[[]]]
+        for corner in corners:
+            if sstart :
+                sstart = False
+                continue
+            if corner[0][2] < udx :
+                cpx[ii].append(corner[0])
+                [x, y, dx] = corner[0]
+                print(ii, ',', x, ',', y, ',', dx)
+            else :
+                ii +=1
+                cpx.append([corner[0]])
+                [x, y, dx] = corner[0]
+                print(ii, ',', x, ',', y, ',', dx)
 
-        t1 = (xx * d2y - xy * d2x) / cross;
-        center = o1 + d1 * t1;
-        cmd_steering_dx = tuple(center)[0] - tpx
-        print('cmd_steering_dx :', cmd_steering_dx)
-        print('Area :', get_area(corners2))
-        #TODO: check the reason in area variation
+            cv2.circle(display_image,(x,y),3,2000,-1)
+        print('######################################')
 
-        cv2.line(gray, tuple(e1), tuple(o1), (255,255,255), 2)
-        cv2.line(gray, tuple(e2), tuple(o2), (255, 255, 255), 2)
-        cv2.circle(gray, tuple(center), int(xx/8), (255, 255, 255), -1)
-        cv2.circle(gray, (tpx, tpy), 10, [150, 0, 0], -1)
-        cv2.line(gray, tuple(center), (tpx, tuple(center)[1]), (255, 255, 255), 2)
-        cv2.line(gray, (tpx, int(tuple(center)[1]) + int(xx/8)), (tpx, int(tuple(center)[1]) - int(xx/8)), (255, 255, 255), 2)
-        if(cmd_steering_dx < 0) :
-            cv2.putText(gray,"<-- %d" % cmd_steering_dx , (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 255, 0), 1, cv2.LINE_AA)
-        else:
-            cv2.putText(gray, "%d -->" % cmd_steering_dx, (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 255, 0), 1, cv2.LINE_AA)
-        cv2.imshow(cv_window_name, gray)
+###################################################################################################
+        # kp2, des2 = orb.detectAndCompute(display_imagec,None)
+        # matches = bf.match(des1,des2)
+        # matches = sorted(matches, key = lambda x:x.distance)
+        # display_image = cv2.drawMatches(template,kp1,display_imagec,kp2,matches[:36],None, flags=4)
+####################################################################################################
+        #run_inference(display_image, graphnet)
+        #if (resize_output):
+        #display_image = cv2.resize(display_image,(resize_output_width, resize_output_height), cv2.INTER_LINEAR)
+####################################################################################################
+        cv2.imshow(cv_window_name, display_image)
 
         raw_key = cv2.waitKey(1)
         if (raw_key != -1):
