@@ -16,8 +16,8 @@
       <file leaf-file-name="vehicle_platooning.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/vehicle_platooning.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="340">
-              <caret line="472" column="43" lean-forward="false" selection-start-line="472" selection-start-column="43" selection-end-line="472" selection-end-column="43" />
+            <state relative-caret-position="280">
+              <caret line="431" column="75" lean-forward="false" selection-start-line="431" selection-start-column="74" selection-end-line="431" selection-end-column="75" />
               <folding>
                 <element signature="e#117#149#0" expanded="true" />
               </folding>
@@ -28,8 +28,8 @@
       <file leaf-file-name="vehicle_platooning_threaded.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/vehicle_platooning_threaded.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1360">
-              <caret line="311" column="25" lean-forward="true" selection-start-line="311" selection-start-column="25" selection-end-line="311" selection-end-column="25" />
+            <state relative-caret-position="204">
+              <caret line="22" column="0" lean-forward="false" selection-start-line="22" selection-start-column="0" selection-end-line="22" selection-end-column="5" />
               <folding />
             </state>
           </provider>
@@ -54,6 +54,8 @@
       <find>self</find>
       <find>exit_app</find>
       <find>np</find>
+      <find>qu</find>
+      <find>q</find>
     </findStrings>
     <replaceStrings>
       <replace>output</replace>
@@ -70,11 +72,12 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
+        <option value="$PROJECT_DIR$/vehicle_platooning_threaded.py" />
         <option value="$PROJECT_DIR$/vehicle_platooning.py" />
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
+  <component name="ProjectFrameBounds" extendedState="7">
     <option name="x" value="-8" />
     <option name="y" value="-8" />
     <option name="width" value="1936" />
@@ -168,7 +171,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1936" height="1096" extended-state="6" />
+    <frame x="-8" y="-8" width="1936" height="1096" extended-state="7" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.1296875" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -231,14 +234,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/vehicle_platooning_threaded.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1360">
-          <caret line="311" column="25" lean-forward="true" selection-start-line="311" selection-start-column="25" selection-end-line="311" selection-end-column="25" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/vehicle_platooning_wsort.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="544">
@@ -247,10 +242,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/vehicle_platooning_threaded.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="204">
+          <caret line="22" column="0" lean-forward="false" selection-start-line="22" selection-start-column="0" selection-end-line="22" selection-end-column="5" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/vehicle_platooning.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="340">
-          <caret line="472" column="43" lean-forward="false" selection-start-line="472" selection-start-column="43" selection-end-line="472" selection-end-column="43" />
+        <state relative-caret-position="280">
+          <caret line="431" column="75" lean-forward="false" selection-start-line="431" selection-start-column="74" selection-end-line="431" selection-end-column="75" />
           <folding>
             <element signature="e#117#149#0" expanded="true" />
           </folding>

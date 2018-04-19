@@ -378,8 +378,10 @@ def main():
     nrows = 4#7
     ncols = 4#7
     dimension = 18#9
+    Qi = 20
+    Ai = 8980
     tpx = int(actual_frame_width / 2)
-    tpy = int(actual_frame_height / 2) + int(actual_frame_height / 4)
+    tpy = int(actual_frame_height / 2) + int(actual_frame_height / 8)
 
     debug = False
     # xtarget =
@@ -401,7 +403,8 @@ def main():
     objp = numpy.zeros((nrows * ncols, 3), numpy.float32)
     objp[:, :2] = numpy.mgrid[0:nrows, 0:ncols].T.reshape(-1, 2)
     axis = numpy.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
-
+    cmd_queue = []
+    cmd_queue_size = 0
     while(True):
         if (exit_app):
             break
@@ -433,7 +436,12 @@ def main():
         ####################################################################################################
 ##################################################################################################
         gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
-        ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
+        ret = True
+        #corners = cv2.cornerHarris(gray,2,3,0.04)
+        corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
+        #ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
+        print('ret :', ret)
+        print(corners)
         if ret != True:
             continue
         corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
@@ -469,9 +477,19 @@ def main():
         t1 = (xx * d2y - xy * d2x) / cross;
         center = o1 + d1 * t1;
         cmd_steering_dx = tuple(center)[0] - tpx
+        area = get_area(corners2)
         print('cmd_steering_dx :', cmd_steering_dx)
-        print('Area :', get_area(corners2))
+        print('Area :', area)
         #TODO: check the reason in area variation
+
+        # if cmd_queue_size == 0 :
+        #     n = int(area*(Qi/Ai))
+        #     for ii in range(n):
+        #         cmd_queue.append([tpx,actual_frame_height,ii])
+        #         #cv2.line(gray, (tpx,actual_frame_height,ii), (tpx,actual_frame_height,ii+1), (0, 0, 255), 2)
+        #         cv2.circle(gray, (tpx,actual_frame_height,ii), 1, [0, 0, 0], -1)
+
+
 
         cv2.line(gray, tuple(e1), tuple(o1), (255,255,255), 2)
         cv2.line(gray, tuple(e2), tuple(o2), (255, 255, 255), 2)
