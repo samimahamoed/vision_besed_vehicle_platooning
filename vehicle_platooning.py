@@ -1,9 +1,10 @@
 #! /usr/bin/env python3
 
-# Copyright(c) 2017 Intel Corporation.
-# License: MIT See LICENSE file in root directory.
+import os, sys
+subm = os.path.dirname(os.path.abspath(__file__))+'/ES_Project_2018/car1/'
+sys.path.insert(0, subm)
 
-
+from client import controller
 from mvnc import mvncapi as mvnc
 import sys
 import numpy
@@ -11,9 +12,6 @@ import cv2
 import time
 import csv
 import os
-import sys
-sys.path.insert(0, "./ES_Project_2018/car1/")
-import client.py
 
 from sys import argv
 
@@ -315,6 +313,17 @@ def draw(img, corners, imgpts):
     img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
     return img
 
+def set_speed(Area, Ai, gain):
+    run = 0
+    speed = 0
+    if Area < Ai:
+        run = 1
+        speed = (Ai-Area)*gain
+    return run, int(speed)
+
+def set_steering(dx, gain):
+    return int(dx*gain)
+
 def main():
     global resize_output, resize_output_width, resize_output_height
 
@@ -384,10 +393,12 @@ def main():
     dimension = 18#9
     Qi = 20
     Ai = 8980
+    Gspeed = 1
+    Gsteering = 1
     tpx = int(actual_frame_width / 2)
     tpy = int(actual_frame_height / 2) + int(actual_frame_height / 8)
 
-    driver = motor_controller()
+    ctrl = controller()
     debug = False
     # xtarget =
     if debug == True:
@@ -483,11 +494,12 @@ def main():
         center = o1 + d1 * t1;
         cmd_steering_dx = tuple(center)[0] - tpx
         area = get_area(corners2)
+        run, m = set_speed(area, Ai, Gspeed)
+        s = set_steering(cmd_steering_dx,Gsteering)
 
-        client.
         print('cmd_steering_dx :', cmd_steering_dx)
         print('Area :', area)
-
+        ctrl.write_to_arduino(run, s, m)
 
         #TODO: check the reason in area variation
 
