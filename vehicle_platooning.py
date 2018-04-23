@@ -12,8 +12,12 @@ import time
 import csv
 import os
 import sys
+sys.path.insert(0, "./ES_Project_2018/car1/")
+import client.py
 
 from sys import argv
+
+
 
 # name of the opencv window
 cv_window_name = "vehicle platooning"
@@ -383,6 +387,7 @@ def main():
     tpx = int(actual_frame_width / 2)
     tpy = int(actual_frame_height / 2) + int(actual_frame_height / 8)
 
+    driver = motor_controller()
     debug = False
     # xtarget =
     if debug == True:
@@ -438,8 +443,8 @@ def main():
         gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
         ret = True
         #corners = cv2.cornerHarris(gray,2,3,0.04)
-        corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
-        #ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
+        #corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
+        ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
         print('ret :', ret)
         print(corners)
         if ret != True:
@@ -478,8 +483,12 @@ def main():
         center = o1 + d1 * t1;
         cmd_steering_dx = tuple(center)[0] - tpx
         area = get_area(corners2)
+
+        client.
         print('cmd_steering_dx :', cmd_steering_dx)
         print('Area :', area)
+
+
         #TODO: check the reason in area variation
 
         # if cmd_queue_size == 0 :
