@@ -285,6 +285,10 @@ def print_usage():
     print('python3 run_video.py resize_window=1920x1080')
 
 
+
+def add(corners):
+    return abs(tuple(corners[3].ravel())[0] - tuple(corners[0].ravel())[0])
+
 def get_dx(corners):
     return abs(tuple(corners[3].ravel())[0] - tuple(corners[0].ravel())[0])
 
@@ -313,16 +317,21 @@ def draw(img, corners, imgpts):
     img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
     return img
 
-def set_speed(Area, Ai, gain):
-    run = 0
-    speed = 0
-    if Area < Ai:
-        run = 1
-        speed = (Ai-Area)*gain
+def set_speed(Area, Ai, gain, vset):
+    speed = (Ai-Area)*gain + vset
+    print('Area: ', Area, ' speed: ', speed)
+    speed = speed if speed < 100 else 100
+    run = 1 if speed > 0 else 0
     return run, int(speed)
 
 def set_steering(dx, gain):
-    return int(dx*gain)
+    s = int(dx*gain + 90)
+    s = s if s >= 0 else 0
+    s = s if s <= 180 else 180
+
+    #add to queue
+    #return to que
+    return s
 
 def main():
     global resize_output, resize_output_width, resize_output_height
@@ -331,23 +340,23 @@ def main():
         print_usage()
         return 1
 
-    mvnc.SetGlobalOption(mvnc.GlobalOption.LOG_LEVEL, 2)
-
-
-    devices = mvnc.EnumerateDevices()
-    if len(devices) == 0:
-        print('No devices found')
-        quit()
-
-    device = mvnc.Device(devices[0])
-    device.OpenDevice()
-
-    graph_filename = 'graph'
-    with open(graph_filename, mode='rb') as f:
-        graph_data = f.read()
-
-
-    graphnet = device.AllocateGraph(graph_data)
+    # mvnc.SetGlobalOption(mvnc.GlobalOption.LOG_LEVEL, 2)
+    #
+    #
+    # devices = mvnc.EnumerateDevices()
+    # if len(devices) == 0:
+    #     print('No devices found')
+    #     quit()
+    #
+    # device = mvnc.Device(devices[0])
+    # device.OpenDevice()
+    #
+    # graph_filename = 'graph'
+    # with open(graph_filename, mode='rb') as f:
+    #     graph_data = f.read()
+    #
+    #
+    # graphnet = device.AllocateGraph(graph_data)
 
 
 
@@ -387,20 +396,22 @@ def main():
     mtx = numpy.matrix([[516.14758188, 0 , 314.02546443], [0 , 515.76615942 , 250.15817809], [0, 0, 1]])
     disto = numpy.matrix([[2.48041485e-01,  -6.31759025e-01 ,  4.36060601e-04, -1.48720850e-03, 5.17810257e-01]])
 
-    #TODO:  configurable values
+    #TODO:  configurable values, should be an option to configer before runing
+    debug = False
     nrows = 4#7
     ncols = 4#7
     dimension = 18#9
     Qi = 20
-    Ai = 8980
-    Gspeed = 1
+    Aset = 9000
+    Astop = 30000
+    Vset = 10
+    Gspeed = Vset/(Astop - Aset);
     Gsteering = 1
+
     tpx = int(actual_frame_width / 2)
-    tpy = int(actual_frame_height / 2) + int(actual_frame_height / 8)
+    tpy = int(actual_frame_height / 2) + 2*int(actual_frame_height / 8)
 
     ctrl = controller()
-    debug = False
-    # xtarget =
     if debug == True:
         choice = input('Enter Y to run camera calibration, press enter to continue:')
         if choice.upper() == 'Y':
@@ -456,9 +467,8 @@ def main():
         #corners = cv2.cornerHarris(gray,2,3,0.04)
         #corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
         ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
-        print('ret :', ret)
-        print(corners)
         if ret != True:
+            print("No corners")
             continue
         corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         # Find the rotation and translation vectors.
@@ -494,13 +504,12 @@ def main():
         center = o1 + d1 * t1;
         cmd_steering_dx = tuple(center)[0] - tpx
         area = get_area(corners2)
-        run, m = set_speed(area, Ai, Gspeed)
+        run, m = set_speed(area, Aset, Gspeed, Vset)
         s = set_steering(cmd_steering_dx,Gsteering)
 
         print('cmd_steering_dx :', cmd_steering_dx)
-        print('Area :', area)
-        ctrl.write_to_arduino(run, s, m)
-
+       
+       # ctrl.write_to_arduino(run, s, m)
         #TODO: check the reason in area variation
 
         # if cmd_queue_size == 0 :
