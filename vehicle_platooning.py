@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
 
 import os, sys
-subm = os.path.dirname(os.path.abspath(__file__))+'/ES_Project_2018/car1/'
+subm = os.path.dirname(os.path.abspath(__file__))+'/ES_Project_2018/RPIs/'
 sys.path.insert(0, subm)
 
-from client import controller
+from car_control import car_controller
 from mvnc import mvncapi as mvnc
 import sys
 import numpy
@@ -141,41 +141,6 @@ def handle_args():
             return False
 
     return True
-
-def chessboard(img):
-	# termination criteria
-	criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-	# prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-	objp = numpy.zeros((6*7,3), numpy.float32)
-	objp[:,:2] = numpy.mgrid[0:7,0:6].T.reshape(-1,2)
-
-	# Arrays to store object points and image points from all the images.
-	objpoints = [] # 3d point in real world space
-	imgpoints = [] # 2d points in image plane.
-
-	#images = glob.glob('*.png')
-
-
-	#img = cv2.imread('template.png')
-	gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-
-	# Find the chess board corners
-	ret, corners = cv2.findChessboardCorners(gray, (5,5),None)
-
-	# If found, add object points, image points (after refining them)
-	if ret == True:
-		objpoints.append(objp)
-
-		#corners2 = cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
-		#imgpoints.append(corners2)
-
-		# Draw and display the corners
-		img = cv2.drawChessboardCorners(img, (7,7), corners,ret)
-		#cv2.imshow('img',img)
-		#cv2.waitKey(500)
-
-	#cv2.destroyAllWindows()
 
 def run_camera_calibration(cap, nrows, ncols, dimension):
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, dimension, 0.001)
@@ -320,15 +285,16 @@ def draw(img, corners, imgpts):
 def set_speed(Area, Ai, gain, vset):
     speed = (Ai-Area)*gain + vset
     print('Area: ', Area, ' speed: ', speed)
-    speed = speed if speed < 100 else 100
-    run = 1 if speed > 0 else 0
-    return run, int(speed)
+    speed = speed if speed < 60 else 60
+    run = 1 if speed > 40 else 40
+    return run, int(30)
 
 def set_steering(dx, gain):
-    s = int(dx*gain + 90)
+    s = int(-dx*gain + 90)
+    print("stiring cmd :", s, "dx :", dx)
     s = s if s >= 0 else 0
-    s = s if s <= 180 else 180
-
+    s = s if s <= 100 else 180
+    print("2stiring cmd :", s, "dx :", dx)
     #add to queue
     #return to que
     return s
@@ -340,6 +306,7 @@ def main():
         print_usage()
         return 1
 
+    vout = True
     # mvnc.SetGlobalOption(mvnc.GlobalOption.LOG_LEVEL, 2)
     #
     #
@@ -364,8 +331,9 @@ def main():
     # template = cv2.resize(template, (NETWORK_IMAGE_WIDTH, NETWORK_IMAGE_HEIGHT))
     # orb = cv2.ORB_create()
     # kp1, des1 = orb.detectAndCompute(template,None)
-    cv2.namedWindow(cv_window_name)
-    cv2.moveWindow(cv_window_name, 10,  10)
+    if vout:
+        cv2.namedWindow(cv_window_name)
+        cv2.moveWindow(cv_window_name, 10,  10)
 
     exit_app = False
 
@@ -400,18 +368,18 @@ def main():
     debug = False
     nrows = 4#7
     ncols = 4#7
-    dimension = 18#9
+    dimension = 30#9
     Qi = 20
     Aset = 9000
-    Astop = 30000
-    Vset = 10
-    Gspeed = Vset/(Astop - Aset);
-    Gsteering = 1
+    Astop = 2*Aset
+    Vset = 40
+    Gspeed = (Vset - 30)/(Astop - Aset);
+    Gsteering = 0.01
 
     tpx = int(actual_frame_width / 2)
     tpy = int(actual_frame_height / 2) + 2*int(actual_frame_height / 8)
 
-    ctrl = controller()
+    ctrl = car_controller(2)
     if debug == True:
         choice = input('Enter Y to run camera calibration, press enter to continue:')
         if choice.upper() == 'Y':
@@ -446,11 +414,11 @@ def main():
         # image_ud = image_ud[y:y + h, x:x + w]
 
         # check if user hasn't closed the window
-        prop_val = cv2.getWindowProperty(cv_window_name, cv2.WND_PROP_ASPECT_RATIO)
-        if (prop_val < 0.0):
-            end_time = time.time()
-            exit_app = True
-            break
+        #prop_val = cv2.getWindowProperty(cv_window_name, cv2.WND_PROP_ASPECT_RATIO)
+        #if (prop_val < 0.0):
+        # end_time = time.time()
+        #   exit_app = True
+        #   break
         ###################################################################################################
         # kp2, des2 = orb.detectAndCompute(image_ud,None)
         # matches = bf.match(des1,des2)
@@ -466,8 +434,11 @@ def main():
         ret = True
         #corners = cv2.cornerHarris(gray,2,3,0.04)
         #corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
-        ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
+        ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols),  (cv2.CALIB_CB_FAST_CHECK))
+        s = 90
+        m = 40
         if ret != True:
+            #ctrl.write_to_arduino(0, s, m)
             print("No corners")
             continue
         corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
@@ -509,7 +480,7 @@ def main():
 
         print('cmd_steering_dx :', cmd_steering_dx)
        
-       # ctrl.write_to_arduino(run, s, m)
+#ctrl.write_to_arduino(run, s, m)
         #TODO: check the reason in area variation
 
         # if cmd_queue_size == 0 :
@@ -520,18 +491,18 @@ def main():
         #         cv2.circle(gray, (tpx,actual_frame_height,ii), 1, [0, 0, 0], -1)
 
 
-
-        cv2.line(gray, tuple(e1), tuple(o1), (255,255,255), 2)
-        cv2.line(gray, tuple(e2), tuple(o2), (255, 255, 255), 2)
-        cv2.circle(gray, tuple(center), int(xx/8), (255, 255, 255), -1)
-        cv2.circle(gray, (tpx, tpy), 10, [150, 0, 0], -1)
-        cv2.line(gray, tuple(center), (tpx, tuple(center)[1]), (255, 255, 255), 2)
-        cv2.line(gray, (tpx, int(tuple(center)[1]) + int(xx/8)), (tpx, int(tuple(center)[1]) - int(xx/8)), (255, 255, 255), 2)
-        if(cmd_steering_dx < 0) :
-            cv2.putText(gray,"<-- %d" % cmd_steering_dx , (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 255, 0), 1, cv2.LINE_AA)
-        else:
-            cv2.putText(gray, "%d -->" % cmd_steering_dx, (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 255, 0), 1, cv2.LINE_AA)
-        cv2.imshow(cv_window_name, gray)
+        if vout:
+            cv2.line(gray, tuple(e1), tuple(o1), (255,255,255), 2)
+            cv2.line(gray, tuple(e2), tuple(o2), (255, 255, 255), 2)
+            cv2.circle(gray, tuple(center), int(xx/8), (255, 255, 255), -1)
+            cv2.circle(gray, (tpx, tpy), 10, [150, 0, 0], -1)
+            cv2.line(gray, tuple(center), (tpx, tuple(center)[1]), (255, 255, 255), 2)
+            cv2.line(gray, (tpx, int(tuple(center)[1]) + int(xx/8)), (tpx, int(tuple(center)[1]) - int(xx/8)), (255, 255, 255), 2)
+            if(cmd_steering_dx < 0) :
+                cv2.putText(gray,"<-- %d" % cmd_steering_dx , (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 255, 0), 1, cv2.LINE_AA)
+            else:
+                cv2.putText(gray, "%d -->" % cmd_steering_dx, (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 255, 0), 1, cv2.LINE_AA)
+            cv2.imshow(cv_window_name, gray)
 
         raw_key = cv2.waitKey(1)
         if (raw_key != -1):
@@ -548,8 +519,9 @@ def main():
     cap.release()
 
     # Clean up the graph and the device
-    graphnet.DeallocateGraph()
-    device.CloseDevice()
+
+#graphnet.DeallocateGraph()
+#device.CloseDevice()
 
 
     cv2.destroyAllWindows()
