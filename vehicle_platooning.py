@@ -284,7 +284,12 @@ def print_usage():
     print('Example: ')
     print('python3 run_video.py resize_window=1920x1080')
 
-
+def camera_position(t, r):
+    '''
+    returns camera position in world coordinates using rvec and tvec
+    http://stackoverflow.com/questions/14515200/python-opencv-solvepnp-yields-wrong-translation-vector
+    '''
+    return -numpy.matrix(cv2.Rodrigues(r)[0]).T * numpy.matrix(t)
 
 def add(corners):
     return abs(tuple(corners[3].ravel())[0] - tuple(corners[0].ravel())[0])
@@ -315,6 +320,13 @@ def draw(img, corners, imgpts):
     img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
     img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
     img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
+    return img
+
+def draw_path(img, imgpts):
+    print("path:", imgpts)
+    img = cv2.circle(img, tuple(imgpts[0].ravel()), 1, (255,0,0), -1)
+    img = cv2.circle(img, tuple(imgpts[1].ravel()), 1, (0,255,0), -1)
+    img = cv2.circle(img, tuple(imgpts[2].ravel()), 1, (0,0,255), -1)
     return img
 
 def set_speed(Area, Ai, gain, vset):
@@ -430,6 +442,7 @@ def main():
     objp = numpy.zeros((nrows * ncols, 3), numpy.float32)
     objp[:, :2] = numpy.mgrid[0:nrows, 0:ncols].T.reshape(-1, 2)
     axis = numpy.float32([[3, 0, 0], [0, 3, 0], [0, 0, -3]]).reshape(-1, 3)
+    caxis = numpy.float32([[1, 0, 0], [0, 1, 0], [0, 0, 1]]).reshape(-1, 3)
     cmd_queue = []
     cmd_queue_size = 0
     while(True):
@@ -466,7 +479,7 @@ def main():
         ret = True
         #corners = cv2.cornerHarris(gray,2,3,0.04)
         #corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
-        ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), None)
+        ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols), (cv2.CALIB_CB_FAST_CHECK))
         if ret != True:
             print("No corners")
             continue
@@ -477,6 +490,23 @@ def main():
         imgpts, jac = cv2.projectPoints(axis, rvecs, tvecs, mtx, disto)
         gray= draw(gray, corners2, imgpts)
 
+        print("wrvecs :",  rvecs)
+        print("wtvecs :", tvecs)
+        # R, _ = cv2.Rodrigues(rvecs)
+        # T, _ = cv2.Rodrigues(tvecs)
+        # R = cv2.transpose(R)
+        # print("R :", R)
+        # ctvec = -R * tvecs;
+        # print("T :", T)
+        # crvec, _ = cv2.Rodrigues(R)
+        #ctvec, _ = cv2.Rodrigues(T)
+
+        crvec = numpy.matrix(rvecs).T
+        ctvec = (-crvec*numpy.matrix(tvecs)).reshape(3,1)
+        print("crvecs :",  crvec)
+        print("ctvecs :", ctvec)
+        imgpts, jac = cv2.projectPoints(caxis, crvec, ctvec, mtx, disto)
+        gray= draw_path(gray, imgpts)
         for corner in corners:
             [x, y] = corner[0]
             cv2.circle(gray, (x, y), 3, 255, -1)
