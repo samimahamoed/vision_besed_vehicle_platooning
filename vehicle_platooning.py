@@ -44,6 +44,20 @@ resize_output_height = 0
 # read video files from this directory
 input_video_path = '.'
 
+#########################################################################################
+# prints usage information
+def print_usage():
+    print('\nusage: ')
+    print('python3 run_video.py [help][resize_window=<width>x<height>]')
+    print('')
+    print('options:')
+    print('  help - prints this message')
+    print('  resize_window - resizes the GUI window to specified dimensions')
+    print('                  must be formated similar to resize_window=1280x720')
+    print('')
+    print('Example: ')
+    print('python3 run_video.py resize_window=1920x1080')
+
 
 def preprocess_image(source_image):
     resized_image = cv2.resize(source_image, (NETWORK_IMAGE_WIDTH, NETWORK_IMAGE_HEIGHT))
@@ -69,6 +83,7 @@ def handle_keys(raw_key):
     return True
 
 def overlay_on_image(display_image, object_info):
+	'''Draw detection result'''
     source_image_width = display_image.shape[1]
     source_image_height = display_image.shape[0]
 
@@ -191,7 +206,8 @@ def run_camera_calibration(cap, nrows, ncols, dimension):
 
 	
 def run_inference(img, graphnet):
-
+	''' Run the object detection from trained model '''
+	
     # preprocess the image to meet nework expectations
     resized_image = preprocess_image(img)
 
@@ -235,21 +251,9 @@ def run_inference(img, graphnet):
             # overlay boxes and labels on to the image
             overlay_on_image(img, output[base_index:base_index + 7])
 
-
-# prints usage information
-def print_usage():
-    print('\nusage: ')
-    print('python3 run_video.py [help][resize_window=<width>x<height>]')
-    print('')
-    print('options:')
-    print('  help - prints this message')
-    print('  resize_window - resizes the GUI window to specified dimensions')
-    print('                  must be formated similar to resize_window=1280x720')
-    print('')
-    print('Example: ')
-    print('python3 run_video.py resize_window=1920x1080')
-
-
+###################################################################################################
+### The following functions are used for measuring the area of the checkerboard from which we could
+### infer the speed and steering angles and send control commands to Arduino
 
 def add(corners):
     return abs(tuple(corners[3].ravel())[0] - tuple(corners[0].ravel())[0])
@@ -261,6 +265,16 @@ def get_dy(corners):
     return abs(tuple(corners[12].ravel())[0] - tuple(corners[0].ravel())[0])
 
 def get_area(corners):
+	
+	''' Calculate the area of the ROI based on coordinates '''
+	#  X0  --- X1  --- X2  --- X3
+    #  |	   |	   |	  	|
+    #  X4  --- X5  --- X6  --- X7
+    #  |	   |	   |		|
+    #  X8  --- X9  --- X10 --- X11
+    #  |	   |	   |		|
+    #  X12 --- X13 --- X14 --- X15
+    # *** area = norm(X0 - X3) * norm(X12 - X0) ***
     o = corners[0].ravel()
     epx = corners[3].ravel()
     epy = corners[12].ravel()
@@ -283,10 +297,12 @@ def draw(img, corners, imgpts):
     return img
 
 def set_speed(Area, Ai, gain, vset):
-    speed = (Ai-Area)*gain + vset
+	
+	speed = (Ai-Area)*gain + vset
+    
     print('Area: ', Area, ' speed: ', speed)
-    speed = speed if speed < 60 else 60
-    run = 1 if speed > 40 else 40
+    speed = speed if speed < 80 else 80
+    run = 1 if speed > 40 else 0
     return run, int(30)
 
 def set_steering(dx, gain):
@@ -298,6 +314,8 @@ def set_steering(dx, gain):
     #add to queue
     #return to que
     return s
+
+########################################################################
 
 def main():
     global resize_output, resize_output_width, resize_output_height
@@ -354,11 +372,14 @@ def main():
 
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
-    ##  Calibration Matrix:
+	####################################################
+    ## The camera needs calibration to prevent distortion on the captured images
+    ##  Calibration matrix:
     ##[[ 516.14758188    0.          314.02546443]
     ## [   0.          515.76615942  250.15817809]
     ## [   0.            0.            1.        ]]
-    ##Disortion:  [[  2.48041485e-01  -6.31759025e-01   4.36060601e-04  -1.48720850e-03
+    ## Disortion matrix:  
+    ## [[  2.48041485e-01  -6.31759025e-01   4.36060601e-04  -1.48720850e-03
     ##    5.17810257e-01]]
     ##total error:  0.021112667972552
     mtx = numpy.matrix([[516.14758188, 0 , 314.02546443], [0 , 515.76615942 , 250.15817809], [0, 0, 1]])
@@ -370,16 +391,20 @@ def main():
     ncols = 4#7
     dimension = 30#9
     Qi = 20
-    Aset = 9000
-    Astop = 2*Aset
-    Vset = 40
-    Gspeed = (Vset - 30)/(Astop - Aset);
-    Gsteering = 0.01
+    Aset = 9000			# Area of the chessboard
+    #Astop = 2*Aset		# If this area is detected, car will be stopped
+    Vset = 0			# Set point of speed
+    Gspeed = (Vset - 30)/(Astop - Aset);	# Gain of the speed
+    Gsteering = 0.01	# Gain of the steering
+    
+    # Preset values of steering angle s and motor speed m
+    s = 90
+    m = 0
 
     tpx = int(actual_frame_width / 2)
     tpy = int(actual_frame_height / 2) + 2*int(actual_frame_height / 8)
 
-    ctrl = car_controller(2)
+    ctrl = car_controller(2)							###??? Input arg?????
     if debug == True:
         choice = input('Enter Y to run camera calibration, press enter to continue:')
         if choice.upper() == 'Y':
@@ -392,6 +417,7 @@ def main():
     print('disto', disto)
     ret, img = cap.read()
     h, w = img.shape[:-1]
+    ## New camera matrix after calibration
     newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, disto, (w, h), 1, (w, h))
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, dimension, 0.001)
     # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
@@ -430,13 +456,28 @@ def main():
         # display_image = cv2.resize(display_image,(resize_output_width, resize_output_height), cv2.INTER_LINEAR)
         ####################################################################################################
 ##################################################################################################
+        # Convert the color image to gray scale image
         gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
         ret = True
         #corners = cv2.cornerHarris(gray,2,3,0.04)
         #corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
+        # Detect the corners of the chessboard
+        # syntax: cv2.findChessboardCorners(image, patternSize[, corners[, flags]]) → retval, corners
+        # patternSize – Number of inner corners per a chessboard row and column (patternSize = cv::Size(points_per_row,points_per_column))
+        # retval - True if chessboard is found
+        # corners – Output array of detected corners
+        #  X0  --- X1  --- X2  --- X3
+        #  |	   |	   |	   |
+        #  X4  --- o1  --- o2  --- X7
+        #  |	   |	   |	   |
+        #  X8  --- e1  --- e2  --- X11
+        #  |	   |	   |	   |
+        #  X12 --- X13 --- X14 --- X15
+        
         ret, corners = cv2.findChessboardCorners(gray, (nrows, ncols),  (cv2.CALIB_CB_FAST_CHECK))
-        s = 90
-        m = 40
+        print(corners)
+        
+        
         if ret != True:
             #ctrl.write_to_arduino(0, s, m)
             print("No corners")
@@ -452,7 +493,7 @@ def main():
             [x, y] = corner[0]
             cv2.circle(gray, (x, y), 3, 255, -1)
 
-        o1 = corners[5].ravel()
+        o1 = corners[5].ravel()		# .ravel() are flattened values of the array
         e1 = corners[10].ravel()
         o2 = corners[6].ravel()
         e2 = corners[9].ravel()
@@ -470,6 +511,8 @@ def main():
         cross = d1x * d2y - d1y * d2x;
         if (abs(cross) < 1e-8) :
             print("Error")
+            
+        
 
         t1 = (xx * d2y - xy * d2x) / cross;
         center = o1 + d1 * t1;
@@ -479,8 +522,10 @@ def main():
         s = set_steering(cmd_steering_dx,Gsteering)
 
         print('cmd_steering_dx :', cmd_steering_dx)
-       
-#ctrl.write_to_arduino(run, s, m)
+        
+        
+        ### Send control commands to Arduino
+		#ctrl.write_to_arduino(run, s, m)
         #TODO: check the reason in area variation
 
         # if cmd_queue_size == 0 :
@@ -502,8 +547,9 @@ def main():
                 cv2.putText(gray,"<-- %d" % cmd_steering_dx , (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX , 0.5, (0, 255, 0), 1, cv2.LINE_AA)
             else:
                 cv2.putText(gray, "%d -->" % cmd_steering_dx, (tpx, int(tuple(center)[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 255, 0), 1, cv2.LINE_AA)
-            cv2.imshow(cv_window_name, gray)
-
+            cv2.imshow(cv_window_name, gray)	# Show the streaming video
+            
+        # Handle the streaming
         raw_key = cv2.waitKey(1)
         if (raw_key != -1):
             if (handle_keys(raw_key) == False):
