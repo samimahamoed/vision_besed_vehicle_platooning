@@ -42,6 +42,20 @@ resize_output_height = 0
 # read video files from this directory
 input_video_path = '.'
 
+#########################################################################################
+# prints usage information
+def print_usage():
+    print('\nusage: ')
+    print('python3 run_video.py [help][resize_window=<width>x<height>]')
+    print('')
+    print('options:')
+    print('  help - prints this message')
+    print('  resize_window - resizes the GUI window to specified dimensions')
+    print('                  must be formated similar to resize_window=1280x720')
+    print('')
+    print('Example: ')
+    print('python3 run_video.py resize_window=1920x1080')
+#########################################################################################
 
 def preprocess_image(source_image):
     resized_image = cv2.resize(source_image, (NETWORK_IMAGE_WIDTH, NETWORK_IMAGE_HEIGHT))
@@ -189,7 +203,7 @@ def run_camera_calibration(cap, nrows, ncols, dimension):
 
 	
 def run_inference(img, graphnet):
-
+	''' Run the object detection from trained model '''
     # preprocess the image to meet nework expectations
     resized_image = preprocess_image(img)
 
@@ -233,22 +247,6 @@ def run_inference(img, graphnet):
             # overlay boxes and labels on to the image
             overlay_on_image(img, output[base_index:base_index + 7])
 
-
-# prints usage information
-def print_usage():
-    print('\nusage: ')
-    print('python3 run_video.py [help][resize_window=<width>x<height>]')
-    print('')
-    print('options:')
-    print('  help - prints this message')
-    print('  resize_window - resizes the GUI window to specified dimensions')
-    print('                  must be formated similar to resize_window=1280x720')
-    print('')
-    print('Example: ')
-    print('python3 run_video.py resize_window=1920x1080')
-
-
-
 def add(corners):
     return abs(tuple(corners[3].ravel())[0] - tuple(corners[0].ravel())[0])
 
@@ -259,6 +257,14 @@ def get_dy(corners):
     return abs(tuple(corners[12].ravel())[0] - tuple(corners[0].ravel())[0])
 
 def get_area(corners):
+	#  X0  --- X1  --- X2  --- X3
+    #  |	   |	   |	  	|
+    #  X4  --- X5  --- X6  --- X7
+    #  |	   |	   |		|
+    #  X8  --- X9  --- X10 --- X11
+    #  |	   |	   |		|
+    #  X12 --- X13 --- X14 --- X15
+    # *** area = norm(X0 - X3) * norm(X12 - X0) ***
     o = corners[0].ravel()
     epx = corners[3].ravel()
     epy = corners[12].ravel()
@@ -284,8 +290,6 @@ def set_speed(Area, Ai, gain, vset):
     global m, count, old_time
     
     speed = (Ai-Area)*gain + vset
-    # gain = (Vset - 30) / Aset
-    #print('Area: ', Area, ' speed: ', speed)
     speed = speed if speed < 50 else 50
     run = 1 if speed > 20 else 0
     print('speed ', speed)
@@ -304,14 +308,12 @@ def set_speed(Area, Ai, gain, vset):
 
 
 def set_steering(dx, gain):
-	global m
 	s = int(-dx*gain + 90)
 	#if (s > 95 or s < 85):
 		#m = abs(s - 90) + 20	# linearize m with respect to s
-		 
-    #print("steering cmd :", s, "dx :", dx)
-    #print("2steering cmd :", s, "dx :", dx)
 	return s
+
+#########################################################################################
 
 def main():
     global m, count
@@ -321,8 +323,28 @@ def main():
     if (not handle_args()):
         print_usage()
         return 1
+        
+        
+    #TODO:  configurable values, should be an option to configer before runing
+    debug = False
+    nrows = 4#7
+    ncols = 4#7
+    dimension = 30#9
+    Qi = 20
+    Aset = 7000						# Adjustable area of the chessboard for stopping the car
+    Vset = 20						# Set speed of the car for controlling
+    Gspeed = (Vset - 10)/(Aset)		# Gain of speed
+    Gsteering = 0.1					# Gain of the steering angle
+    G = 1				
+    s = 90							# Set point of steering angle
+    m = 20							# Set point of speed
+    
+    ###=================================================================================
+    # Initilize controller
+    ctrl = car_controller()
+    #count = 0
 
-    vout = False
+    
     # mvnc.SetGlobalOption(mvnc.GlobalOption.LOG_LEVEL, 2)
     #
     #
@@ -347,6 +369,9 @@ def main():
     # template = cv2.resize(template, (NETWORK_IMAGE_WIDTH, NETWORK_IMAGE_HEIGHT))
     # orb = cv2.ORB_create()
     # kp1, des1 = orb.detectAndCompute(template,None)
+    ###===================================================================================
+    # Monitoring screen
+    vout = False
     if vout:
         cv2.namedWindow(cv_window_name)
         cv2.moveWindow(cv_window_name, 10,  10)
@@ -358,7 +383,7 @@ def main():
 
     actual_frame_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     actual_frame_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    print ('actual video resolution: ' + str(actual_frame_width) + ' x ' + str(actual_frame_height))
+    #print ('actual video resolution: ' + str(actual_frame_width) + ' x ' + str(actual_frame_height))
 
     if ((cap == None) or (not cap.isOpened())):
         print ('Could not open video device. ')
@@ -366,7 +391,6 @@ def main():
 
     frame_count = 0
     start_time = time.time()
-    #end_time = start_time
 
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
@@ -380,26 +404,10 @@ def main():
     mtx = numpy.matrix([[516.14758188, 0 , 314.02546443], [0 , 515.76615942 , 250.15817809], [0, 0, 1]])
     disto = numpy.matrix([[2.48041485e-01,  -6.31759025e-01 ,  4.36060601e-04, -1.48720850e-03, 5.17810257e-01]])
 
-    #TODO:  configurable values, should be an option to configer before runing
-    debug = False
-    nrows = 4#7
-    ncols = 4#7
-    dimension = 30#9
-    Qi = 20
-    Aset = 7000
-    #Astop = 2*Aset
-    Vset = 20
-    Gspeed = (Vset - 10)/( Aset)
-    Gsteering = 0.1
-    G = 1
-    s = 90
-    m = 20
-    count = 0
-
     tpx = int(actual_frame_width / 2)
     tpy = int(actual_frame_height / 2) + 2*int(actual_frame_height / 8)
 
-    ctrl = car_controller(2)
+    
     if debug == True:
         choice = input('Enter Y to run camera calibration, press enter to continue:')
         if choice.upper() == 'Y':
@@ -414,6 +422,7 @@ def main():
     h, w = img.shape[:-1]
     newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, disto, (w, h), 1, (w, h))
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, dimension, 0.001)
+    
     # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
     objp = numpy.zeros((nrows * ncols, 3), numpy.float32)
     objp[:, :2] = numpy.mgrid[0:nrows, 0:ncols].T.reshape(-1, 2)
@@ -423,19 +432,11 @@ def main():
     cap.release()
     fvs= VideoStream(src=0).start()
     
-    while(True):
-        
-    #for i in range (0,30):
+    while(True):   
         try:
             if (exit_app):
                 break 
             image = fvs.read()
-
-            #imge = image.copy()
-            #if (not ret):
-                #end_time = time.time()
-                #print("No image from from video device, exiting")
-                #break
 	        #TODO: undistort image
 	        # image_ud = cv2.undistort(image, mtx, disto, None, newcameramtx)
 	        # x, y, w, h = roi
@@ -457,17 +458,28 @@ def main():
 	        # if (resize_output):
 	        # display_image = cv2.resize(display_image,(resize_output_width, resize_output_height), cv2.INTER_LINEAR)
 	        ####################################################################################################
-	##################################################################################################
+			##################################################################################################
+			
+			# Convert the color image to gray scale image
             gray = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
             ret2 = True
-            #i = i +1
-	        #corners = cv2.cornerHarris(gray,2,3,0.04)
-	        #corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
+			#corners = cv2.cornerHarris(gray,2,3,0.04)
+			#corners = cv2.goodFeaturesToTrack(gray,16, 0.1, 10)
+			# Detect the corners of the chessboard
+			# syntax: cv2.findChessboardCorners(image, patternSize[, corners[, flags]]) → retval, corners
+			# patternSize – Number of inner corners per a chessboard row and column (patternSize = cv::Size(points_per_row,points_per_column))
+			# retval - True if chessboard is found
+			# corners – Output array of detected corners
+			#  X0  --- X1  --- X2  --- X3
+			#  |	   |	   |	   |
+			#  X4  --- o1  --- o2  --- X7
+			#  |	   |	   |	   |
+			#  X8  --- e1  --- e2  --- X11
+			#  |	   |	   |	   |
+			#  X12 --- X13 --- X14 --- X15
             ret2, corners = cv2.findChessboardCorners(gray, (nrows, ncols),  (cv2.CALIB_CB_FAST_CHECK))
-            #print(corners)
 	
             if ret2 != True:
-	            #ctrl.write_to_arduino(0, s, m)
                 print("No corners")   
                 continue
             corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
@@ -481,7 +493,7 @@ def main():
 	            [x, y] = corner[0]
 	            cv2.circle(gray, (x, y), 3, 255, -1)
 	
-            o1 = corners[5].ravel()
+            o1 = corners[5].ravel()				# .ravel() are flattened values of the array
             e1 = corners[10].ravel()
             o2 = corners[6].ravel()
             e2 = corners[9].ravel()
@@ -542,12 +554,8 @@ def main():
 	            cv2.imshow(cv_window_name, gray)
 	
             raw_key = cv2.waitKey(1)
-            #if (raw_key != -1):
-	            #if (handle_keys(raw_key) == False):
-	                #end_time = time.time()
-	                #exit_app = True
-	                #break
             frame_count += 1
+            
         # if "ctrl + c" is pressed in the terminal, break from the loop
         except KeyboardInterrupt:
             
@@ -556,13 +564,13 @@ def main():
 		# if there's a problem reading a frame, break	
         except AttributeError:
             break
+            
+            
     end_time = time.time()
     frames_per_second = frame_count / (end_time - start_time)
     print('Frames per Second: ' + str(frames_per_second))
 
-    cap.release()
-
-    # Clean up the graph and the device
+## Clean up the graph and the device
 
 #graphnet.DeallocateGraph()
 #device.CloseDevice()
