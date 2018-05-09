@@ -275,36 +275,54 @@ def get_y(img, corners, imgpts):
 
 def draw(img, corners, imgpts):
     corner = tuple(corners[0].ravel())
-    img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
-    img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
-    img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
+    #img = cv2.line(img, corner, tuple(imgpts[0].ravel()), (255,0,0), 5)
+    #img = cv2.line(img, corner, tuple(imgpts[1].ravel()), (0,255,0), 5)
+    #img = cv2.line(img, corner, tuple(imgpts[2].ravel()), (0,0,255), 5)
     return img
 
 def set_speed(Area, Ai, gain, vset):
+    global m, count, old_time
+    
     speed = (Ai-Area)*gain + vset
+    # gain = (Vset - 30) / Aset
     #print('Area: ', Area, ' speed: ', speed)
-    speed = speed if speed < 60 else 60
-    run = 1 if Area < Ai else 0
-    return run, int(30)
+    speed = speed if speed < 50 else 50
+    run = 1 if speed > 20 else 0
+    print('speed ', speed)
+    print('run', run)
+    #run = 1 if Area <= Ai else 0
+    #count += 1
+    #if run == 0:
+        #m = 20
+    #else:
+        #if(m<60 and count >= 20):
+            #m += 1
+            #count = 0
+    
+    #return run, int(m)
+    return run, int(speed)
+
 
 def set_steering(dx, gain):
-    s = int(-dx*gain + 90)
+	global m
+	s = int(-dx*gain + 90)
+	#if (s > 95 or s < 85):
+		#m = abs(s - 90) + 20	# linearize m with respect to s
+		 
     #print("steering cmd :", s, "dx :", dx)
-    s = s if s >= 0 else 0
-    s = s if s <= 100 else 180
     #print("2steering cmd :", s, "dx :", dx)
-    #add to queue
-    #return to que
-    return s
+	return s
 
 def main():
+    global m, count
     global resize_output, resize_output_width, resize_output_height
+    global new_time, old_time
 
     if (not handle_args()):
         print_usage()
         return 1
 
-    vout = True
+    vout = False
     # mvnc.SetGlobalOption(mvnc.GlobalOption.LOG_LEVEL, 2)
     #
     #
@@ -348,7 +366,7 @@ def main():
 
     frame_count = 0
     start_time = time.time()
-    end_time = start_time
+    #end_time = start_time
 
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
 
@@ -368,13 +386,15 @@ def main():
     ncols = 4#7
     dimension = 30#9
     Qi = 20
-    Aset = 9000
+    Aset = 7000
     #Astop = 2*Aset
-    Vset = 0
-    Gspeed = (Vset - 30)/( Aset)
-    Gsteering = 0.01
+    Vset = 20
+    Gspeed = (Vset - 10)/( Aset)
+    Gsteering = 0.1
+    G = 1
     s = 90
-    m = 40
+    m = 20
+    count = 0
 
     tpx = int(actual_frame_width / 2)
     tpy = int(actual_frame_height / 2) + 2*int(actual_frame_height / 8)
@@ -402,7 +422,7 @@ def main():
     cmd_queue_size = 0
     cap.release()
     fvs= VideoStream(src=0).start()
-    #i=0
+    
     while(True):
         
     #for i in range (0,30):
@@ -410,6 +430,7 @@ def main():
             if (exit_app):
                 break 
             image = fvs.read()
+
             #imge = image.copy()
             #if (not ret):
                 #end_time = time.time()
@@ -482,15 +503,21 @@ def main():
             t1 = (xx * d2y - xy * d2x) / cross;
             center = o1 + d1 * t1;
             cmd_steering_dx = tuple(center)[0] - tpx
+				
             area = get_area(corners2)
             run, m = set_speed(area, Aset, Gspeed, Vset)
+            
             s = set_steering(cmd_steering_dx,Gsteering)
+            v = int(G*abs(s-90)+m)
 	
 	        #print('cmd_steering_dx :', cmd_steering_dx)
-	        #print('run', run)
-	       
-            ctrl.write_to_arduino(run, s, m)
-            print(m)
+          	      
+            ctrl.write_to_arduino(run, s, v)
+            
+            #print('m: ',m)
+            print('dx: ', cmd_steering_dx)
+            print('s: ',s)
+                       
 	        #TODO: check the reason in area variation
 	
 	        # if cmd_queue_size == 0 :
