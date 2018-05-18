@@ -292,8 +292,7 @@ def set_speed(Area, Ai, gain, vset):
     speed = (Ai-Area)*gain + vset
     speed = speed if speed < 50 else 50
     run = 1 if speed > 20 else 0
-    print('speed ', speed)
-    print('run', run)
+
     #run = 1 if Area <= Ai else 0
     #count += 1
     #if run == 0:
@@ -342,8 +341,6 @@ def main():
     ###=================================================================================
     # Initilize controller
     ctrl = car_controller()
-    #count = 0
-
     
     # mvnc.SetGlobalOption(mvnc.GlobalOption.LOG_LEVEL, 2)
     #
@@ -363,15 +360,13 @@ def main():
     #
     # graphnet = device.AllocateGraph(graph_data)
 
-
-
     # template = cv2.imread('template.png',0)
     # template = cv2.resize(template, (NETWORK_IMAGE_WIDTH, NETWORK_IMAGE_HEIGHT))
     # orb = cv2.ORB_create()
     # kp1, des1 = orb.detectAndCompute(template,None)
     ###===================================================================================
     # Monitoring screen
-    vout = False
+    vout = False					# Change to 'True' to open the display
     if vout:
         cv2.namedWindow(cv_window_name)
         cv2.moveWindow(cv_window_name, 10,  10)
@@ -574,7 +569,6 @@ def main():
 
 #graphnet.DeallocateGraph()
 #device.CloseDevice()
-
 
     cv2.destroyAllWindows()
 
