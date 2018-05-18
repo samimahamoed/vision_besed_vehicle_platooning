@@ -19,6 +19,5 @@ git pull
 ```Shell
 cd ..		# back to project root 
 make run_py	# run the detection
-```
-
 # The detection show "No corners" if the checkerboard is not present
+```
