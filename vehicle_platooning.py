@@ -425,7 +425,7 @@ def main():
     cmd_queue = []
     cmd_queue_size = 0
     cap.release()
-    fvs= VideoStream(src=0).start()
+    fvs= VideoStream(src=0).start()		# Video streaming with threading
     
     while(True):   
         try:
