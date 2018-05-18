@@ -4,6 +4,10 @@
 git clone https://github.com/samimahamoed/vision_besed_vehicle_platooning.git
 cd vision_besed_vehicle_platooning
 git checkout test
+
+# Checkout the version ceadff89e20d949e35284c87cc1e7ef38c4d327d
+git checkout ceadff89e20d949e35284c87cc1e7ef38c4d327d
+
 ```
 2. Get the submodule code
 ```Shell
