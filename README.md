@@ -1,4 +1,4 @@
-# vision_besed_vehicle_platooning
+# vision_based_vehicle_platooning
 1. Get the vision-based code
 ```Shell
 git clone https://github.com/samimahamoed/vision_besed_vehicle_platooning.git
